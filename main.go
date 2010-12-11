@@ -40,7 +40,6 @@ func (wf *withFiles) String() string {
 
 func (wf *withFiles) Set(value string) bool {
 	if f, err := os.Open(value, os.O_RDONLY, 0666); err == nil {
-		// Go Bug? Cannot take the address of append (Issue 1338)
 		nwf := append(*wf, f)
 		wf = &nwf
 		return true
@@ -84,7 +83,7 @@ func main() {
 	for i, _ := range wf {
 		rs = append(rs, wf[len(wf)-1-i])
 	}
-	input := io.MultiReader(append(rs, os.Stdin) ...)
+	input := io.MultiReader(append(rs, os.Stdin)...)
 
 	vm := ngaro.New(img, *dump, input, os.Stdout)
 

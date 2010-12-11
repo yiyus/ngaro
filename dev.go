@@ -44,7 +44,7 @@ func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
 		} else if _, err := vm.out.Write(c); err == nil {
 			port[2] = 0
 			drop = 1
-                }
+		}
 
 	case port[4] != 0: // Files
 		switch port[4] {
@@ -55,7 +55,7 @@ func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
 			name := vm.img.string(tos)
 			if f, err := os.Open(name, os.O_RDONLY, 0); err == nil {
 				vm.in = &input{f, vm.in}
-			} 
+			}
 			port[4] = 0
 		case -1:
 			vm.file[fd] = open(vm.img.string(data[sp-1]), tos)
