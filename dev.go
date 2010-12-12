@@ -97,7 +97,7 @@ func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
 		case -4: // screen height
 			port[5] = 0
 		case -5: // Stack depth
-			port[5] = sp - 2
+			port[5] = sp
 		case -6: // Address stack depth
 			port[5] = rsp
 		case -7: // mouse exists?
