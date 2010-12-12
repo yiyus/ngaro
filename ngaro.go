@@ -3,50 +3,39 @@
 //   Copyright (C) 2008, 2009, 2010 Charles Childers
 // Go port
 //   Copyright 2009, 2010 JGL
+
+/*
+Ngaro virtual machines.
+
+Ngaro is a portable virtual machine / emulator for a dual
+stack processor and various I/O devices. The instruction set
+is concise (31 core instructions), and the basic I/O devices
+are kept minimal. For more information see
+	http://rx-core.org
+
+In addition to normal ngaro features, this Go version
+adds concurrency support: port 13 is used to launch
+new cores, and the ports 1 and 2 can be used to
+send to/receive from synchronous channels.
+
+   chain: concurrency'
+      : :go ( a- ) 1 13 out wait ; ( start new core with ip set to a )
+      : go ( "-  ) ' :go ; ( parse a word and run it on a new core )
+      : ->c ( xy- ) 2 out wait ; ( send x to channel y )
+      : c-> ( x-y ) 1 out wait 1 in ; ( receive y from channel x )
+      : delchan ( x- ) dup 1 out 2 out wait ; ( delete channel )
+   ;chain
+
+*/
 package ngaro
 
 import (
-	"fmt"
 	"io"
 	"os"
 )
 
 const (
-	// Instruction set
-	Nop = iota
-	Lit
-	Dup
-	Drop
-	Swap
-	Push
-	Pop
-	Loop
-	Jump
-	Return
-	GtJump
-	LtJump
-	NeJump
-	EqJump
-	Fetch
-	Store
-	Add
-	Sub
-	Mul
-	Dinod
-	And
-	Or
-	Xor
-	ShL
-	ShR
-	ZeroExit
-	Inc
-	Dec
-	In
-	Out
-	Wait
-
 	stackDepth = 1024
-	chanBuffer = 128
 	nports     = 64
 )
 
@@ -55,7 +44,7 @@ type input struct {
 	next *input
 }
 
-// Virtual machine
+// The VM type represents a Ngaro virtual machine
 type VM struct {
 	img  Image
 	ch   map[int]chan int
@@ -83,153 +72,18 @@ func New(img Image, dump string, r io.Reader, w io.Writer) *VM {
 }
 
 // Run starts the execution of the Ngaro virtual machine vm and
-// returns a finalization chanel.
+// returns a finalization channel.
 func (vm *VM) Run() chan os.Error {
 	go vm.core(0)
 	return vm.ret
 }
 
-// Channel returns the channel with the given id. This chanel
+// Chan returns the channel with the given id. This channel
 // can be used to communicate with any running core.
-func (vm *VM) Channel(id int) chan int {
+func (vm *VM) Chan(id int) chan int {
 	if c, ok := vm.ch[id]; ok {
 		return c
 	}
 	vm.ch[id] = make(chan int)
 	return vm.ch[id]
-}
-
-func (vm *VM) core(ip int) {
-	var port [nports]int
-	var sp, rsp int
-	var tos int
-	var data, addr [stackDepth]int
-	defer func() {
-		if v := recover(); v != nil {
-			if err, ok := v.(os.Error); ok {
-				vm.ret <- err
-			} else {
-				vm.ret <- os.NewError("unknown error:"+fmt.Sprint(v))
-			}
-		}
-	}()
-	for ; ip < len(vm.img); ip++ {
-		switch vm.img[ip] {
-		case Nop:
-		case Lit:
-			sp++
-			ip++
-			data[sp] = vm.img[ip]
-		case Dup:
-			sp++
-			data[sp] = tos
-		case Drop:
-			sp--
-		case Swap:
-			data[sp], data[sp-1] = data[sp-1], tos
-		case Push:
-			rsp++
-			addr[rsp] = tos
-			sp--
-		case Pop:
-			sp++
-			data[sp] = addr[rsp]
-			rsp--
-		case Loop:
-			data[sp]--
-			if data[sp] != 0 && data[sp] > -1 {
-				ip++
-				ip = vm.img[ip] - 1
-			} else {
-				ip++
-				sp--
-			}
-		case Jump:
-			ip++
-			ip = vm.img[ip] - 1
-		case Return:
-			ip = addr[rsp]
-			rsp--
-		case GtJump:
-			ip++
-			if data[sp-1] > tos {
-				ip = vm.img[ip] - 1
-			}
-			sp = sp - 2
-		case LtJump:
-			ip++
-			if data[sp-1] < tos {
-				ip = vm.img[ip] - 1
-			}
-			sp = sp - 2
-		case NeJump:
-			ip++
-			if data[sp-1] != tos {
-				ip = vm.img[ip] - 1
-			}
-			sp = sp - 2
-		case EqJump:
-			ip++
-			if data[sp-1] == tos {
-				ip = vm.img[ip] - 1
-			}
-			sp = sp - 2
-		case Fetch:
-			data[sp] = vm.img[tos]
-		case Store:
-			vm.img[tos] = data[sp-1]
-			sp = sp - 2
-		case Add:
-			data[sp-1] += tos
-			sp--
-		case Sub:
-			data[sp-1] -= tos
-			sp--
-		case Mul:
-			data[sp-1] *= tos
-			sp--
-		case Dinod:
-			data[sp] = data[sp-1] / tos
-			data[sp-1] = data[sp-1] % tos
-		case And:
-			data[sp-1] &= tos
-			sp--
-		case Or:
-			data[sp-1] |= tos
-			sp--
-		case Xor:
-			data[sp-1] ^= tos
-			sp--
-		case ShL:
-			data[sp-1] <<= uint(tos)
-			sp--
-		case ShR:
-			data[sp-1] >>= uint(tos)
-			sp--
-		case ZeroExit:
-			if tos == 0 {
-				sp--
-				ip = addr[rsp]
-				rsp--
-			}
-		case Inc:
-			data[sp]++
-		case Dec:
-			data[sp]--
-		case In:
-			data[sp] = port[tos]
-			port[tos] = 0
-		case Out:
-			port[0] = 0
-			port[tos] = data[sp-1]
-			sp = sp - 2
-		case Wait:
-			sp -= vm.wait(&port, tos, sp, rsp, data[0:])
-		default:
-			rsp++
-			addr[rsp] = ip
-			ip = vm.img[ip] - 1
-		}
-		tos = data[sp]
-	}
 }

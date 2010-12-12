@@ -1,8 +1,3 @@
-// Ngaro VM
-// Original Ngaro Virtual Machine and Uki framework:
-//   Copyright (C) 2008, 2009, 2010 Charles Childers
-// Go port
-//   Copyright 2009, 2010 JGL
 package ngaro
 
 import (
@@ -37,6 +32,15 @@ func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
 			port[1] = int(c[0])
 		}
 
+	case port[1] > 1: // Receive from (or delete) channel
+		if port[2] == port[1] {
+			vm.ch[port[1]] = nil, false
+			port[1] = 0
+			port[2] = 0
+		} else {
+			port[1] = <-vm.Chan(port[1])
+		}
+
 	case port[2] == 1: // Output
 		c[0] = byte(tos)
 		if tos < 0 {
@@ -45,6 +49,11 @@ func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
 			port[2] = 0
 			drop = 1
 		}
+
+	case port[2] > 1: // Send to channel
+		vm.Chan(port[2]) <- tos
+		port[2] = 0
+		drop = 1
 
 	case port[4] != 0: // Files
 		switch port[4] {
@@ -121,7 +130,6 @@ func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
 	case port[13] == 1:
 		go vm.core(tos)
 		port[13] = 0
-		drop = 1
 	}
 	port[0] = 1
 	return

@@ -1,8 +1,3 @@
-// Ngaro VM
-// Original Ngaro Virtual Machine and Uki framework:
-//   Copyright (C) 2008, 2009, 2010 Charles Childers
-// Go port
-//   Copyright 2009, 2010 JGL
 package ngaro
 
 import (

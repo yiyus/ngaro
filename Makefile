@@ -1,7 +1,7 @@
 include $(GOROOT)/src/Make.inc
 
 TARG=ngaro
-GOFILES=ngaro.go dev.go file.go img.go
+GOFILES=ngaro.go core.go dev.go file.go img.go
 
 CLEANFILES+=gonga
 
