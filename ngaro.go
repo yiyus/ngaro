@@ -47,12 +47,11 @@ type input struct {
 // The VM type represents a Ngaro virtual machine
 type VM struct {
 	img  Image
-	ch   map[int]chan int
 	dump string
+	ch   map[int]chan int
 	file map[int]*os.File
 	in   *input
 	out  io.Writer
-	ret  chan os.Error
 }
 
 // New returns a Ngaro virtual machine with the image given
@@ -66,16 +65,13 @@ func New(img Image, dump string, r io.Reader, w io.Writer) *VM {
 		file: make(map[int]*os.File),
 		in:   &input{r, nil},
 		out:  w,
-		ret:  make(chan os.Error),
 	}
 	return &vm
 }
 
-// Run starts the execution of the Ngaro virtual machine vm and
-// returns a finalization channel.
-func (vm *VM) Run() chan os.Error {
-	go vm.core(0)
-	return vm.ret
+// Run executes a VM and blocks until it finishes.
+func (vm *VM) Run() os.Error {
+	return vm.core(0)
 }
 
 // Chan returns the channel with the given id. This channel

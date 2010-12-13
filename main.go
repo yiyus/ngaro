@@ -1,8 +1,3 @@
-// Ngaro VM
-// Original Ngaro Virtual Machine and Uki framework:
-//   Copyright (C) 2008, 2009, 2010 Charles Childers
-// Go port
-//   Copyright 2009, 2010 JGL
 package main
 
 import (
@@ -72,21 +67,21 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-
 	if err != nil {
 		fmt.Fprint(os.Stderr, "error starting gonga: ", err.String())
 		os.Exit(1)
 	}
 
-	// Reverse with files order and add os.Stdin
+	// Reverse wf and add os.Stdin
 	rs := make([]io.Reader, 0, len(wf)+1)
 	for i, _ := range wf {
 		rs = append(rs, wf[len(wf)-1-i])
 	}
 	input := io.MultiReader(append(rs, os.Stdin)...)
 
+	// Run a new VM
 	vm := ngaro.New(img, *dump, input, os.Stdout)
-
-	// vm.Run() returns a chanel that blocks until the vm finishes
-	<-vm.Run()
+	if vm.Run() != nil {
+		os.Exit(1)
+	}
 }

@@ -37,6 +37,8 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 	case port[1] == 1: // Input
 	readInput:
 		switch _, err := vm.in.Read(c); err {
+		case nil:
+			port[1] = int(c[0])
 		case os.EOF:
 			if rc, ok := vm.in.Reader.(io.ReadCloser); ok {
 				rc.Close()
@@ -44,11 +46,10 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 			vm.in = vm.in.next
 			if vm.in != nil {
 				goto readInput
-			} else {
-				vm.ret <- os.EOF
 			}
-		case nil:
-			port[1] = int(c[0])
+			panic(err)
+		default:
+			panic(err)
 		}
 
 	case port[1] > 1: // Receive from (or delete) channel
@@ -148,7 +149,7 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 				port[5] = int(t)
 			}
 		case -9: // Bye!
-			vm.ret <- nil
+			panic(nil)
 		case -10: // getenv
 			env := os.Getenv(vm.img.string(tos))
 			copy(vm.img[data[sp-1]:], []int(env))
