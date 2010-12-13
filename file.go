@@ -25,50 +25,37 @@ func open(filename string, mode int) file {
 	return file{nil}
 }
 
-func (f file) read() int {
+func (f file) read() (int, os.Error) {
 	c := make([]byte, 1)
-	if _, err := f.Read(c); err == nil {
-		return int(c[0])
-	}
-	return 0
+	_, err := f.Read(c)
+	return int(c[0]), err
 }
 
-func (f file) write(c int) int {
-	if _, err := f.Write([]byte{byte(c)}); err == nil {
-		return 1
-	}
-	return 0
+func (f file) write(c int) (int, os.Error) {
+	return f.Write([]byte{byte(c)})
 }
 
-func (f file) close() int {
+func (f file) close() (int, os.Error) {
 	f.Close()
-	return 1
+	return 1, nil
 }
 
-func (f file) pos() int {
-	if p, err := f.Seek(0, 1); err == nil {
-		return int(p)
-	}
-	return 0
+func (f file) pos() (int, os.Error) {
+	p, err := f.Seek(0, 1)
+	return int(p), err
 }
 
-func (f file) seek(p int) int {
-	if r, err := f.Seek(int64(p), 0); err == nil {
-		return int(r)
-	}
-	return 0
+func (f file) seek(p int) (int, os.Error) {
+	r, err := f.Seek(int64(p), 0)
+	return int(r), err
 }
 
-func (f file) size() int {
-	if d, err := f.Stat(); err == nil {
-		return int(d.Size)
-	}
-	return 0
+func (f file) size() (int, os.Error) {
+	d, err := f.Stat()
+	return int(d.Size), err
 }
 
-func delete(filename string) int {
-	if err := os.Remove(filename); err == nil {
-		return 1
-	}
-	return 0
+func delete(filename string) (int, os.Error) {
+	err := os.Remove(filename)
+	return 1, err
 }

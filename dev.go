@@ -58,6 +58,7 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 		drop = 1
 
 	case port[4] != 0: // Files
+		var err os.Error
 		switch port[4] {
 		case 1: // Write dump
 			vm.img.save(vm.dump)
@@ -74,27 +75,30 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 			fd++
 			drop = 2
 		case -2:
-			port[4] = vm.file[tos].read()
+			port[4], err = vm.file[tos].read()
 			drop = 1
 		case -3:
-			port[4] = vm.file[tos].write(data[sp-1])
+			port[4], err = vm.file[tos].write(data[sp-1])
 			drop = 2
 		case -4:
-			port[4] = vm.file[tos].close()
+			port[4], err = vm.file[tos].close()
 			vm.file[tos] = file{}, false
 			drop = 1
 		case -5:
-			port[4] = vm.file[tos].pos()
+			port[4], err = vm.file[tos].pos()
 			drop = 1
 		case -6:
-			port[4] = vm.file[tos].seek(data[sp-1])
+			port[4], err = vm.file[tos].seek(data[sp-1])
 			drop = 2
 		case -7:
-			port[4] = vm.file[tos].size()
+			port[4], err = vm.file[tos].size()
 			drop = 1
 		case -8:
-			port[4] = delete(vm.img.string(tos))
+			port[4], err = delete(vm.img.string(tos))
 			drop = 1
+		}
+		if err != nil {
+			port[4] = 0
 		}
 
 	case port[5] != 0: // Capabilities
