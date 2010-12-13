@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 )
 
@@ -25,7 +26,8 @@ Options:
 
 var shrink = flag.Bool("shrink", false, "shrink image dump file")
 var size = flag.Int("s", 50000, "image size")
-var dump = flag.String("d", "retro.img", "image dump file")
+var dump = flag.String("d", "gongaImage", "image dump file")
+var port = flag.Int("p", 0, "listen on port")
 
 type withFiles []*os.File
 
@@ -44,6 +46,7 @@ func (wf *withFiles) Set(value string) bool {
 
 func main() {
 	var wf withFiles
+	var l net.Listener
 	flag.Var(&wf, "w", "input files")
 	flag.Usage = Usage
 	flag.Parse()
@@ -67,9 +70,23 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
+	if *port > 0 {
+		l, err = net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	}
 	if err != nil {
 		fmt.Fprint(os.Stderr, "error starting gonga: ", err.String())
 		os.Exit(1)
+	}
+
+	// If listening on a port, run a VM per connection
+	for l != nil {
+		c, err := l.Accept()
+		if err != nil {
+			os.Exit(1)
+		}
+		img := append([]int{}, img...)
+		vm := ngaro.New(img, *dump, c, c)
+		go vm.Run()
 	}
 
 	// Reverse wf and add os.Stdin
