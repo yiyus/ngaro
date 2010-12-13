@@ -9,7 +9,9 @@ var fd int
 var ClearScreen func() = func() {}
 var ShrinkImage = false
 
-func (vm *VM) wait(port *[nports]int, tos, sp, rsp int, data []int) (drop int) {
+func (vm *VM) wait(data, addr, port []int) (drop int) {
+	sp, rsp := len(data)-1, len(addr)-1
+	tos := data[sp]
 	c := make([]byte, 1)
 	switch {
 	case port[0] == 1:

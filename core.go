@@ -50,7 +50,7 @@ func (vm *VM) core(ip int) {
 			if err, ok := v.(os.Error); ok {
 				vm.ret <- err
 			} else {
-				vm.ret <- os.NewError("unknown error:"+fmt.Sprint(v))
+				vm.ret <- os.NewError(fmt.Sprint(v))
 			}
 		}
 	}()
@@ -165,7 +165,7 @@ func (vm *VM) core(ip int) {
 			port[tos] = data[sp-1]
 			sp = sp - 2
 		case Wait:
-			sp -= vm.wait(&port, tos, sp, rsp, data[0:])
+			sp -= vm.wait(data[:sp+1], addr[:rsp+1], port[:])
 		default:
 			rsp++
 			addr[rsp] = ip

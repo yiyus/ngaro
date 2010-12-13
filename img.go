@@ -46,11 +46,6 @@ func (img Image) save(filename string) os.Error {
 	return err
 }
 
-func read0(data []int, a int) string {
-	var w int
-	return string(data[a:w])
-}
-
 func (img Image) string(offset int) string {
 	var end int
 	for end = offset; end < len(img) && img[end] != 0; end++ {
