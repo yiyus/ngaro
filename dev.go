@@ -9,6 +9,23 @@ var fd int
 var ClearScreen func() = func() {}
 var ShrinkImage = false
 
+func open(filename string, mode int) *os.File {
+	switch mode {
+	case 0:
+		mode = os.O_RDONLY
+	case 1:
+		mode = os.O_WRONLY | os.O_CREATE
+	case 2:
+		mode = os.O_WRONLY | os.O_APPEND | os.O_CREATE
+	case 3:
+		mode = os.O_RDWR | os.O_CREATE
+	}
+	if f, err := os.Open(filename, mode, 0666); err == nil {
+		return f
+	}
+	return nil
+}
+
 func (vm *VM) wait(data, addr, port []int) (drop int) {
 	sp, rsp := len(data)-1, len(addr)-1
 	tos := data[sp]
@@ -59,6 +76,7 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 
 	case port[4] != 0: // Files
 		var err os.Error
+		var p int64
 		switch port[4] {
 		case 1: // Write dump
 			vm.img.save(vm.dump)
@@ -75,26 +93,34 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 			fd++
 			drop = 2
 		case -2:
-			port[4], err = vm.file[tos].read()
+			_, err = vm.file[tos].Read(c)
+			port[4] = int(c[0])
 			drop = 1
 		case -3:
-			port[4], err = vm.file[tos].write(data[sp-1])
+			c[0] = byte(data[sp-1])
+			port[4], err = vm.file[tos].Write(c)
 			drop = 2
 		case -4:
-			port[4], err = vm.file[tos].close()
-			vm.file[tos] = file{}, false
+			port[4], err = 1, vm.file[tos].Close()
+			if err != nil {
+				vm.file[tos] = nil, false
+			}
 			drop = 1
 		case -5:
-			port[4], err = vm.file[tos].pos()
+			p, err = vm.file[tos].Seek(0, 1)
+			port[4] = int(p)
 			drop = 1
 		case -6:
-			port[4], err = vm.file[tos].seek(data[sp-1])
+			p, err = vm.file[tos].Seek(int64(data[sp-1]), 0)
+			port[4] = int(p)
 			drop = 2
 		case -7:
-			port[4], err = vm.file[tos].size()
+			var fi *os.FileInfo
+			fi, err = vm.file[tos].Stat()
+			port[4] = int(fi.Size)
 			drop = 1
 		case -8:
-			port[4], err = delete(vm.img.string(tos))
+			port[4], err = 1, os.Remove(vm.img.string(tos))
 			drop = 1
 		}
 		if err != nil {

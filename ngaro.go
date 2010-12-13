@@ -49,7 +49,7 @@ type VM struct {
 	img  Image
 	ch   map[int]chan int
 	dump string
-	file map[int]file
+	file map[int]*os.File
 	in   *input
 	out  io.Writer
 	ret  chan os.Error
@@ -63,7 +63,7 @@ func New(img Image, dump string, r io.Reader, w io.Writer) *VM {
 		img:  img,
 		dump: dump,
 		ch:   make(map[int]chan int),
-		file: make(map[int]file),
+		file: make(map[int]*os.File),
 		in:   &input{r, nil},
 		out:  w,
 		ret:  make(chan os.Error),
