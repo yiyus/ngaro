@@ -35,14 +35,16 @@ import (
 )
 
 const (
+	// Limits
 	stackDepth = 1024
 	nports     = 64
 )
 
-type input struct {
-	io.Reader
-	next *input
-}
+var (
+	// Package options
+	ClearScreen func() = func() {}
+	ShrinkImage = false
+)
 
 // The VM type represents a Ngaro virtual machine
 type VM struct {
@@ -63,7 +65,7 @@ func New(img Image, dump string, r io.Reader, w io.Writer) *VM {
 		dump: dump,
 		ch:   make(map[int32]chan int32),
 		file: make(map[int32]*os.File),
-		in:   &input{r, nil},
+		in:   &input{r},
 		out:  w,
 	}
 	return &vm

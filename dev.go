@@ -6,8 +6,22 @@ import (
 )
 
 var fd int32
-var ClearScreen func() = func() {}
-var ShrinkImage = false
+
+type input []io.Reader
+
+func (in *input)Read(b []byte) (n int, err os.Error) {
+	r := (*in)[len(*in)-1]
+	if n, err = r.Read(b); err == os.EOF {
+		if rc, ok := r.(io.ReadCloser); ok {
+			rc.Close()
+		}
+		if len(*in) > 1 {
+			(*in) = (*in)[:len(*in)-1]
+			return in.Read(b)
+		}
+	}
+	return
+}
 
 func open(filename string, mode int32) *os.File {
 	var m int
@@ -36,22 +50,10 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 		return
 
 	case port[1] == 1: // Input
-	readInput:
-		switch _, err := vm.in.Read(c); err {
-		case nil:
-			port[1] = int32(c[0])
-		case os.EOF:
-			if rc, ok := vm.in.Reader.(io.ReadCloser); ok {
-				rc.Close()
-			}
-			vm.in = vm.in.next
-			if vm.in != nil {
-				goto readInput
-			}
-			panic(err)
-		default:
+		if _, err := vm.in.Read(c); err != nil {
 			panic(err)
 		}
+		port[1] = int32(c[0])
 
 	case port[1] > 1: // Receive from (or delete) channel
 		if port[2] == port[1] {
@@ -86,9 +88,11 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 		case 2: // Include file
 			name := vm.img.string(tos)
 			if f, err := os.Open(name, os.O_RDONLY, 0); err == nil {
-				vm.in = &input{f, vm.in}
+				in := append(*vm.in, f)
+				vm.in = &in
 			}
 			port[4] = 0
+			drop = 1
 		case -1:
 			vm.file[fd] = open(vm.img.string(data[sp-1]), tos)
 			port[4] = fd
