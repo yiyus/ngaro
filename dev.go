@@ -5,28 +5,29 @@ import (
 	"os"
 )
 
-var fd int
+var fd int32
 var ClearScreen func() = func() {}
 var ShrinkImage = false
 
-func open(filename string, mode int) *os.File {
+func open(filename string, mode int32) *os.File {
+	var m int
 	switch mode {
 	case 0:
-		mode = os.O_RDONLY
+		m = os.O_RDONLY
 	case 1:
-		mode = os.O_WRONLY | os.O_CREATE
+		m = os.O_WRONLY | os.O_CREATE
 	case 2:
-		mode = os.O_WRONLY | os.O_APPEND | os.O_CREATE
+		m = os.O_WRONLY | os.O_APPEND | os.O_CREATE
 	case 3:
-		mode = os.O_RDWR | os.O_CREATE
+		m = os.O_RDWR | os.O_CREATE
 	}
-	if f, err := os.Open(filename, mode, 0666); err == nil {
+	if f, err := os.Open(filename, m, 0666); err == nil {
 		return f
 	}
 	return nil
 }
 
-func (vm *VM) wait(data, addr, port []int) (drop int) {
+func (vm *VM) wait(data, addr, port []int32) (drop int) {
 	sp, rsp := len(data)-1, len(addr)-1
 	tos := data[sp]
 	c := make([]byte, 1)
@@ -38,7 +39,7 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 	readInput:
 		switch _, err := vm.in.Read(c); err {
 		case nil:
-			port[1] = int(c[0])
+			port[1] = int32(c[0])
 		case os.EOF:
 			if rc, ok := vm.in.Reader.(io.ReadCloser); ok {
 				rc.Close()
@@ -95,11 +96,12 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 			drop = 2
 		case -2:
 			_, err = vm.file[tos].Read(c)
-			port[4] = int(c[0])
+			port[4] = int32(c[0])
 			drop = 1
 		case -3:
 			c[0] = byte(data[sp-1])
-			port[4], err = vm.file[tos].Write(c)
+			n, _ := vm.file[tos].Write(c)
+			port[4] = int32(n)
 			drop = 2
 		case -4:
 			port[4], err = 1, vm.file[tos].Close()
@@ -109,16 +111,16 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 			drop = 1
 		case -5:
 			p, err = vm.file[tos].Seek(0, 1)
-			port[4] = int(p)
+			port[4] = int32(p)
 			drop = 1
 		case -6:
 			p, err = vm.file[tos].Seek(int64(data[sp-1]), 0)
-			port[4] = int(p)
+			port[4] = int32(p)
 			drop = 2
 		case -7:
 			var fi *os.FileInfo
 			fi, err = vm.file[tos].Stat()
-			port[4] = int(fi.Size)
+			port[4] = int32(fi.Size)
 			drop = 1
 		case -8:
 			port[4], err = 1, os.Remove(vm.img.string(tos))
@@ -131,7 +133,7 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 	case port[5] != 0: // Capabilities
 		switch port[5] {
 		case -1: // Image size
-			port[5] = len(vm.img)
+			port[5] = int32(len(vm.img))
 		case -2: // canvas exists?
 			port[5] = 0
 		case -3: // screen width
@@ -139,20 +141,23 @@ func (vm *VM) wait(data, addr, port []int) (drop int) {
 		case -4: // screen height
 			port[5] = 0
 		case -5: // Stack depth
-			port[5] = sp
+			port[5] = int32(sp)
 		case -6: // Address stack depth
-			port[5] = rsp
+			port[5] = int32(rsp)
 		case -7: // mouse exists?
 			port[5] = 0
 		case -8: // Seconds from the epoch
 			if t, _, err := os.Time(); err == nil {
-				port[5] = int(t)
+				port[5] = int32(t)
 			}
 		case -9: // Bye!
 			panic(nil)
 		case -10: // getenv
 			env := os.Getenv(vm.img.string(tos))
-			copy(vm.img[data[sp-1]:], []int(env))
+			off := int(data[sp-1])
+			for i, b := range env {
+				vm.img[off+i] = int32(b)
+			}
 		default:
 			port[5] = 0
 		}

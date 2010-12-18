@@ -54,7 +54,7 @@ func main() {
 	ngaro.ShrinkImage = *shrink
 	ngaro.ClearScreen = func() { fmt.Printf("\033[2J\033[1;1H") }
 
-	var img []int
+	var img []int32
 	var err os.Error
 
 	switch flag.NArg() {
@@ -84,7 +84,7 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
-		img := append([]int{}, img...)
+		img := append([]int32{}, img...)
 		vm := ngaro.New(img, *dump, c, c)
 		go vm.Run()
 	}

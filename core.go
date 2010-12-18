@@ -40,17 +40,17 @@ const (
 	Wait
 )
 
-func (vm *VM) core(ip int) (err os.Error) {
-	var port [nports]int
+func (vm *VM) core(ip int32) (err os.Error) {
+	var port [nports]int32
 	var sp, rsp int
-	var tos int
-	var data, addr [stackDepth]int
+	var tos int32
+	var data, addr [stackDepth]int32
 	defer func() {
 		if v := recover(); v != nil {
 			err = os.NewError(fmt.Sprint(v))
 		}
 	}()
-	for ; ip < len(vm.img); ip++ {
+	for ; int(ip) < len(vm.img); ip++ {
 		switch vm.img[ip] {
 		case Nop:
 		case Lit:

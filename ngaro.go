@@ -7,7 +7,7 @@
 /*
 Ngaro virtual machines.
 
-Ngaro is a portable virtual machine / emulator for a dual
+Ngaro is a portable 32-bit virtual machine / emulator for a dual
 stack processor and various I/O devices. The instruction set
 is concise (31 core instructions), and the basic I/O devices
 are kept minimal. For more information see
@@ -48,8 +48,8 @@ type input struct {
 type VM struct {
 	img  Image
 	dump string
-	ch   map[int]chan int
-	file map[int]*os.File
+	ch   map[int32]chan int32
+	file map[int32]*os.File
 	in   *input
 	out  io.Writer
 }
@@ -61,8 +61,8 @@ func New(img Image, dump string, r io.Reader, w io.Writer) *VM {
 	vm := VM{
 		img:  img,
 		dump: dump,
-		ch:   make(map[int]chan int),
-		file: make(map[int]*os.File),
+		ch:   make(map[int32]chan int32),
+		file: make(map[int32]*os.File),
 		in:   &input{r, nil},
 		out:  w,
 	}
@@ -76,10 +76,10 @@ func (vm *VM) Run() os.Error {
 
 // Chan returns the channel with the given id. This channel
 // can be used to communicate with any running core.
-func (vm *VM) Chan(id int) chan int {
+func (vm *VM) Chan(id int32) chan int32 {
 	if c, ok := vm.ch[id]; ok {
 		return c
 	}
-	vm.ch[id] = make(chan int)
+	vm.ch[id] = make(chan int32)
 	return vm.ch[id]
 }
