@@ -7,8 +7,8 @@ import (
 
 // Term is a Ngaro terminal type
 type Term struct {
-	clear      Clear
-	dimensions Dimensions
+	clear      func(io.Writer)
+	dimensions func() (int32, int32)
 	input
 	io.Writer
 }
