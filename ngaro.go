@@ -30,7 +30,6 @@ send to/receive from synchronous channels.
 package ngaro
 
 import (
-	"io"
 	"os"
 )
 
@@ -40,33 +39,28 @@ const (
 	nports     = 64
 )
 
-var (
-	// Package options
-	ClearScreen func() = func() {}
-	ShrinkImage = false
-)
-
 // The VM type represents a Ngaro virtual machine
 type VM struct {
-	img  Image
-	dump string
-	ch   map[int32]chan int32
-	file map[int32]*os.File
-	in   *input
-	out  io.Writer
+	img    Image
+	dump   string
+	shrink bool
+	ch     map[int32]chan int32
+	file   map[int32]*os.File
+	term   *Term
 }
 
 // New returns a Ngaro virtual machine with the image given
-// in img. Dump files will be saved with the name 'dump'.
-// r and w are the input and output of the virtual machine.
-func New(img Image, dump string, r io.Reader, w io.Writer) *VM {
+// in img. Dump files will be saved with the name dump.
+// shrink indicates if images must be shrinked. term is a
+// terminal type, obtained with NewTerm
+func New(img Image, dump string, shrink bool, term *Term) *VM {
 	vm := VM{
-		img:  img,
-		dump: dump,
-		ch:   make(map[int32]chan int32),
-		file: make(map[int32]*os.File),
-		in:   &input{r},
-		out:  w,
+		img,
+		dump,
+		shrink,
+		make(map[int32]chan int32),
+		make(map[int32]*os.File),
+		term,
 	}
 	return &vm
 }
@@ -77,7 +71,7 @@ func (vm *VM) Run() os.Error {
 }
 
 // Chan returns the channel with the given id. This channel
-// can be used to communicate with any running core.
+// can be used to communicate with any running core
 func (vm *VM) Chan(id int32) chan int32 {
 	if c, ok := vm.ch[id]; ok {
 		return c

@@ -5,11 +5,27 @@ import (
 	"os"
 )
 
+// Term is a Ngaro terminal type
+type Term struct {
+	clear      Clear
+	dimensions Dimensions
+	input
+	io.Writer
+}
+
+// NewTerm returns a new Term. normally to be passed to NewVM.
+// The functions clear and size will be called to clear the screen and get
+// its width and height. in and out will be set as the input and output
+// when a Term is used in NewVM
+func NewTerm(clr func(io.Writer), dim func() (int32, int32), in io.Reader, out io.Writer) *Term {
+	return &Term{clr, dim, input{in}, out}
+}
+
 var fd int32
 
 type input []io.Reader
 
-func (in *input)Read(b []byte) (n int, err os.Error) {
+func (in *input) Read(b []byte) (n int, err os.Error) {
 	r := (*in)[len(*in)-1]
 	if n, err = r.Read(b); err == os.EOF {
 		if rc, ok := r.(io.ReadCloser); ok {
@@ -50,8 +66,8 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 		return
 
 	case port[1] == 1: // Input
-		if _, err := vm.in.Read(c); err != nil {
-			panic(err)
+		if _, err := vm.term.Read(c); err != nil {
+			panic(err) // core will recover()
 		}
 		port[1] = int32(c[0])
 
@@ -67,8 +83,8 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 	case port[2] == 1: // Output
 		c[0] = byte(tos)
 		if tos < 0 {
-			ClearScreen()
-		} else if _, err := vm.out.Write(c); err == nil {
+			vm.term.clear(vm.term)
+		} else if _, err := vm.term.Write(c); err == nil {
 			port[2] = 0
 			drop = 1
 		}
@@ -83,13 +99,12 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 		var p int64
 		switch port[4] {
 		case 1: // Write dump
-			vm.img.save(vm.dump)
+			vm.img.save(vm.dump, vm.shrink)
 			port[4] = 0
 		case 2: // Include file
 			name := vm.img.string(tos)
 			if f, err := os.Open(name, os.O_RDONLY, 0); err == nil {
-				in := append(*vm.in, f)
-				vm.in = &in
+				vm.term.input = append(vm.term.input, f)
 			}
 			port[4] = 0
 			drop = 1
@@ -155,13 +170,19 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 				port[5] = int32(t)
 			}
 		case -9: // Bye!
-			panic(nil)
+			panic(nil) // core will recover()
 		case -10: // getenv
 			env := os.Getenv(vm.img.string(tos))
 			off := int(data[sp-1])
 			for i, b := range env {
 				vm.img[off+i] = int32(b)
 			}
+		case -11: // Width
+			w, _ := vm.term.dimensions()
+			port[5] = w
+		case -12: // Height
+			_, h := vm.term.dimensions()
+			port[5] = h
 		default:
 			port[5] = 0
 		}

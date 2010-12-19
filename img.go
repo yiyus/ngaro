@@ -19,16 +19,19 @@ func Load(filename string, size int) (Image, os.Error) {
 	for i := 0; i < len(img) && err == nil; i++ {
 		err = binary.Read(f, binary.LittleEndian, &img[i])
 	}
-	return img, err
+	if err == os.EOF {
+		return img, nil
+	}
+	return nil, err
 }
 
-func (img Image) save(filename string) os.Error {
+func (img Image) save(filename string, shrink bool) os.Error {
 	f, err := os.Open(filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if ShrinkImage {
+	if shrink {
 		img = img[0:img[3]]
 	}
 	return binary.Write(f, binary.LittleEndian, img)

@@ -2,10 +2,10 @@ package main
 
 import (
 	"ngaro"
+	"exec"
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
 )
 
@@ -24,10 +24,10 @@ Options:
 	flag.PrintDefaults()
 }
 
-var shrink = flag.Bool("shrink", false, "shrink image dump file")
 var size = flag.Int("s", 50000, "image size")
 var dump = flag.String("d", "gongaImage", "image dump file")
-var port = flag.Int("p", 0, "listen on port")
+var shrink = flag.Bool("shrink", false, "shrink image dump file")
+var tty = flag.Bool("t", true, "input / output is tty")
 
 type withFiles []*os.File
 
@@ -44,15 +44,34 @@ func (wf *withFiles) Set(value string) bool {
 	return false
 }
 
+// Default terminal
+func noClear(w io.Writer)                          {}
+func vt100Dimensions() (width int32, height int32) { return 80, 24 }
+
+// Tty terminal
+func ttyClear(w io.Writer) { fmt.Fprint(w, "\033[2J\033[1;1H") }
+func ttyDimensions() (width int32, height int32) {
+	arg := []string{"/bin/stty", "-F", "/dev/tty", "size"}
+	if p, err := exec.Run(arg[0], arg, nil, "", 0, exec.Pipe, 0); err == nil {
+		fmt.Fscan(p.Stdout, &width, &height)
+		return
+	}
+	return vt100Dimensions()
+}
+
+func runArgs(arg ...string) {
+	p, err := exec.Run(arg[0], arg, nil, "", 0, 0, 0)
+	if err != nil {
+		os.Exit(1)
+	}
+	p.Wait(0)
+}
+
 func main() {
 	var wf withFiles
-	var l net.Listener
 	flag.Var(&wf, "w", "input files")
 	flag.Usage = Usage
 	flag.Parse()
-
-	ngaro.ShrinkImage = *shrink
-	ngaro.ClearScreen = func() { fmt.Printf("\033[2J\033[1;1H") }
 
 	var img []int32
 	var err os.Error
@@ -70,23 +89,9 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	if *port > 0 {
-		l, err = net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	}
 	if err != nil {
 		fmt.Fprint(os.Stderr, "error starting gonga: ", err.String())
 		os.Exit(1)
-	}
-
-	// If listening on a port, run a VM per connection
-	for l != nil {
-		c, err := l.Accept()
-		if err != nil {
-			os.Exit(1)
-		}
-		img := append([]int32{}, img...)
-		vm := ngaro.New(img, *dump, c, c)
-		go vm.Run()
 	}
 
 	// Reverse wf and add os.Stdin
@@ -95,10 +100,22 @@ func main() {
 		rs = append(rs, wf[len(wf)-1-i])
 	}
 	input := io.MultiReader(append(rs, os.Stdin)...)
+	clr := noClear
+	dim := vt100Dimensions
+	if *tty { // Set raw mode
+		runArgs("/bin/stty", "-F", "/dev/tty", "-echo", "-icanon", "min", "1")
+		clr = ttyClear
+		dim = ttyDimensions
+	}
 
 	// Run a new VM
-	vm := ngaro.New(img, *dump, input, os.Stdout)
-	if vm.Run() != nil {
+	term := ngaro.NewTerm(clr, dim, input, os.Stdout)
+	vm := ngaro.New(img, *dump, *shrink, term)
+	err = vm.Run()
+	if *tty { // Unset raw mode
+		runArgs("/bin/stty", "-F", "/dev/tty", "echo", "cooked")
+	}
+	if err != nil {
 		os.Exit(1)
 	}
 }
