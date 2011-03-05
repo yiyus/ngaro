@@ -23,7 +23,7 @@ func Load(filename string, size int) (Image, os.Error) {
 	buf := make([]byte, 512) // 512%4 == 0
 	for i := 0; err == nil; {
 		var n int
-		if n, err = f.Read(b); err != nil && err != os.EOF {
+		if n, err = f.Read(buf); err != nil && err != os.EOF {
 			return nil, err
 		}
 		for b := buf[:n]; len(b) > 0; b = b[4:] {
