@@ -85,12 +85,12 @@ func main() {
 	case 1:
 		img, err = ngaro.Load(flag.Arg(0), *size)
 	default:
-		fmt.Fprint(os.Stderr, "too many arguments\n")
+		fmt.Fprintln(os.Stderr, "too many arguments")
 		flag.Usage()
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprint(os.Stderr, "error starting gonga: ", err.String())
+		fmt.Fprintln(os.Stderr, "error starting gonga: ", err.String())
 		os.Exit(1)
 	}
 

@@ -16,13 +16,26 @@ func Load(filename string, size int) (Image, os.Error) {
 	}
 	defer f.Close()
 	img := make([]int32, size)
-	for i := 0; i < len(img) && err == nil; i++ {
-		err = binary.Read(f, binary.LittleEndian, &img[i])
+	buf := make([]byte, 512) // 512%4 == 0
+	for i := 0; err == nil; {
+		var n int
+		if n, err = f.Read(b); err != nil && err != os.EOF {
+			return nil, err
+		}
+		// we cannot just use binary.Read because we don't know
+		// the size of the file, and it will return an error if EOF is
+		// found before reading the whole slice
+		for b := buf[:n]; len(b) > 0; b = b[4:] {
+			if len(b) < 4 { // partial value, discard the image
+				return nil, os.NewError("partial value in image file")
+			}
+			img[i] = int32(binary.LittleEndian.Uint32(b[:4]))
+			if i++; i == len(img) {
+				return img, nil
+			}
+		}
 	}
-	if err == os.EOF {
-		return img, nil
-	}
-	return nil, err
+	return img, nil
 }
 
 func (img Image) save(filename string, shrink bool) os.Error {
