@@ -39,7 +39,7 @@ func (in *input) Read(b []byte) (n int, err os.Error) {
 	return
 }
 
-func open(filename string, mode int32) *os.File {
+func open(filename string, mode int32) (*os.File, int) {
 	var m int
 	switch mode {
 	case 0:
@@ -49,15 +49,16 @@ func open(filename string, mode int32) *os.File {
 	case 2:
 		m = os.O_WRONLY | os.O_APPEND | os.O_CREATE
 	case 3:
-		m = os.O_RDWR | os.O_CREATE
+		m = os.O_RDWR
 	}
 	if f, err := os.Open(filename, m, 0666); err == nil {
-		return f
+		return f, 1
 	}
-	return nil
+	return nil, 0
 }
 
 func (vm *VM) wait(data, addr, port []int32) (drop int) {
+	var m int
 	sp, rsp := len(data)-1, len(addr)-1
 	tos := data[sp]
 	c := make([]byte, 1)
@@ -109,9 +110,16 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 			port[4] = 0
 			drop = 1
 		case -1:
-			vm.file[fd] = open(vm.img.string(data[sp-1]), tos)
-			port[4] = fd
-			fd++
+			if fd == 0 {
+				fd++
+			}
+			vm.file[fd], m = open(vm.img.string(data[sp-1]), tos)
+			if m == 0 {
+				port[4] = 0
+			} else {
+				port[4] = fd
+				fd++
+			}
 			drop = 2
 		case -2:
 			_, err = vm.file[tos].Read(c)
@@ -123,9 +131,14 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 			port[4] = int32(n)
 			drop = 2
 		case -4:
-			port[4], err = 1, vm.file[tos].Close()
+			err = vm.file[tos].Close()
 			if err != nil {
 				vm.file[tos] = nil, false
+			}
+			if err != nil {
+				port[4] = 1
+			} else {
+				port[4] = 0
 			}
 			drop = 1
 		case -5:
@@ -177,6 +190,7 @@ func (vm *VM) wait(data, addr, port []int32) (drop int) {
 			for i, b := range env {
 				vm.img[off+i] = int32(b)
 			}
+			drop = 2
 		case -11: // Width
 			w, _ := vm.term.dimensions()
 			port[5] = w
